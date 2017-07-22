@@ -94,7 +94,6 @@ import java.util.regex.Pattern;
         }
 
         void generateAbsentMetrics(@Nonnull  MetricRegistry registry) {
-            StringBuilder builder = new StringBuilder(20);
             Map<String,Metric> metricMap = registry.getMetrics();
             for (int i=0; i<METRIC_NAMES.length; i++) {
                 String metricName = MetricRegistry.name(METRIC_PREFIX, deviceName, METRIC_NAMES[i]);
