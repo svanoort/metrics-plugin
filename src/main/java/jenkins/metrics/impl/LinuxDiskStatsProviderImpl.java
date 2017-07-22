@@ -290,7 +290,7 @@ import java.util.regex.Pattern;
     void update() {
         if (Platform.current() == Platform.UNIX && !Platform.isDarwin() && PROC_FILE.exists()) {
             try {
-                updateMetrics(PROC_FILE);
+                updateMetrics(PROC_FILE, Metrics.metricRegistry());
             } catch (IOException ioe) {
                 myLogger.log(Level.WARNING, "Error gathering linux disk metrics", ioe);
             }
@@ -298,12 +298,10 @@ import java.util.regex.Pattern;
     }
 
     /** Reads diskstats from the given file and creates or updates metrics
-     *  This includes updating top-level registered metrics so we catch newly added devices
+     *  This includes updating top-level registered metrics so we catch newly added devices and extended metrics
      */
-    void updateMetrics(@Nonnull File metricsFile) throws IOException {
+    void updateMetrics(@Nonnull File metricsFile, @Nonnull MetricRegistry registry) throws IOException {
         List<String> lines = FileUtils.readLines(metricsFile);
-
-        MetricRegistry topRegistry = Metrics.metricRegistry();
 
         DeviceStatsRow totals = new DeviceStatsRow();
         totals.deviceName = "total";
@@ -317,25 +315,30 @@ import java.util.regex.Pattern;
 
             ExtendedDeviceStatsRow prevStats = currentDeviceStats.get(stats.deviceName);
             if (prevStats == null) {
-                stats.generateAbsentMetrics(topRegistry);
+                stats.generateAbsentMetrics(registry);
                 ExtendedDeviceStatsRow extd = new ExtendedDeviceStatsRow(stats);
                 currentDeviceStats.put(stats.deviceName, extd);
             } else {
                 if (prevStats.prev == null) {
                     prevStats.updateWithNewStats(stats);
-                    prevStats.generateExtendedMetrics(topRegistry);
+                    prevStats.generateExtendedMetrics(registry);
                 } else {
                     prevStats.updateWithNewStats(stats);
                 }
 
             }
         }
-        DeviceStatsRow prevTotals = currentDeviceStats.get("total");
+        ExtendedDeviceStatsRow prevTotals = currentDeviceStats.get("total");
         if (prevTotals == null) {
             currentDeviceStats.put("total", new ExtendedDeviceStatsRow(totals));
-            totals.generateAbsentMetrics(topRegistry);
+            totals.generateAbsentMetrics(registry);
         } else {
-            prevTotals.updateWithNewStats(totals);
+            if (prevTotals.prev == null) {
+                prevTotals.updateWithNewStats(totals);
+                prevTotals.generateExtendedMetrics(registry);
+            } else {
+                prevTotals.updateWithNewStats(totals);
+            }
         }
     }
 
